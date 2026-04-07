@@ -3,6 +3,7 @@ import { eq, desc } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db, schema } from "../db/index.js";
 import { uploadFile, deleteFile, getDownloadUrl } from "../services/r2.js";
+import { parseApk } from "../services/apk.js";
 import { adminAuth } from "../middleware/auth.js";
 
 const app = new Hono();
@@ -129,6 +130,98 @@ app.get("/:id/download/:versionId", async (c) => {
 });
 
 // --- Admin routes ---
+
+// Upload APK — auto-detect app metadata, create or update
+app.post("/upload", adminAuth, async (c) => {
+  const form = await c.req.formData();
+  const apk = form.get("apk") as File;
+  const releaseNotes = (form.get("releaseNotes") as string) || "";
+  // Allow optional overrides
+  const nameOverride = form.get("name") as string | null;
+  const descOverride = form.get("description") as string | null;
+
+  if (!apk) {
+    return c.json({ error: "apk file is required" }, 400);
+  }
+
+  const apkBuffer = Buffer.from(await apk.arrayBuffer());
+
+  let info;
+  try {
+    info = await parseApk(apkBuffer);
+  } catch (err: any) {
+    return c.json({ error: "Failed to parse APK: " + err.message }, 400);
+  }
+
+  // Check if app with this package name already exists
+  const existing = await db
+    .select()
+    .from(schema.apps)
+    .where(eq(schema.apps.packageName, info.packageName))
+    .limit(1);
+
+  let appId: string;
+  let appName: string;
+  let isNew = false;
+
+  if (existing[0]) {
+    // Existing app — add a new version
+    appId = existing[0].id;
+    appName = existing[0].name;
+  } else {
+    // New app — create it
+    isNew = true;
+    appId = nanoid(12);
+    appName = nameOverride || info.appName || info.packageName;
+
+    let iconKey: string | null = null;
+    if (info.icon) {
+      iconKey = `icons/${appId}/icon.png`;
+      await uploadFile(iconKey, info.icon, "image/png");
+    }
+
+    await db.insert(schema.apps).values({
+      id: appId,
+      name: appName,
+      packageName: info.packageName,
+      description: descOverride || "",
+      iconKey,
+    });
+  }
+
+  // Upload APK and create version
+  const versionId = nanoid(12);
+  const apkKey = `apks/${appId}/${info.versionName}-${info.versionCode}.apk`;
+  await uploadFile(apkKey, apkBuffer, "application/vnd.android.package-archive");
+
+  await db.insert(schema.versions).values({
+    id: versionId,
+    appId,
+    versionName: info.versionName,
+    versionCode: info.versionCode,
+    apkKey,
+    apkSize: apkBuffer.length,
+    releaseNotes,
+  });
+
+  await db
+    .update(schema.apps)
+    .set({ updatedAt: new Date() })
+    .where(eq(schema.apps.id, appId));
+
+  return c.json(
+    {
+      appId,
+      appName,
+      packageName: info.packageName,
+      versionName: info.versionName,
+      versionCode: info.versionCode,
+      apkSize: apkBuffer.length,
+      isNew,
+    },
+    201
+  );
+});
 
 // Create a new app
 app.post("/", adminAuth, async (c) => {
