@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
 
 export const apps = sqliteTable("apps", {
   id: text("id").primaryKey(),
@@ -25,6 +25,34 @@ export const versions = sqliteTable("versions", {
   apkSize: integer("apk_size"), // bytes
   releaseNotes: text("release_notes").default(""),
   createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
+// Log of every download event
+export const downloads = sqliteTable("downloads", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  appId: text("app_id")
+    .notNull()
+    .references(() => apps.id, { onDelete: "cascade" }),
+  versionName: text("version_name").notNull(),
+  versionCode: integer("version_code").notNull(),
+  downloadedAt: integer("downloaded_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
+// History of all published versions (kept after replacement)
+export const versionHistory = sqliteTable("version_history", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  appId: text("app_id")
+    .notNull()
+    .references(() => apps.id, { onDelete: "cascade" }),
+  versionName: text("version_name").notNull(),
+  versionCode: integer("version_code").notNull(),
+  apkSize: integer("apk_size"),
+  releaseNotes: text("release_notes").default(""),
+  publishedAt: integer("published_at", { mode: "timestamp" })
     .notNull()
     .$defaultFn(() => new Date()),
 });

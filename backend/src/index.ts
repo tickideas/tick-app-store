@@ -52,6 +52,29 @@ sqlite.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_versions_app_id ON versions(app_id);
   CREATE INDEX IF NOT EXISTS idx_versions_version_code ON versions(app_id, version_code DESC);
+
+  CREATE TABLE IF NOT EXISTS downloads (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    app_id TEXT NOT NULL REFERENCES apps(id) ON DELETE CASCADE,
+    version_name TEXT NOT NULL,
+    version_code INTEGER NOT NULL,
+    downloaded_at INTEGER NOT NULL DEFAULT (unixepoch())
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_downloads_app_id ON downloads(app_id);
+  CREATE INDEX IF NOT EXISTS idx_downloads_date ON downloads(downloaded_at);
+
+  CREATE TABLE IF NOT EXISTS version_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    app_id TEXT NOT NULL REFERENCES apps(id) ON DELETE CASCADE,
+    version_name TEXT NOT NULL,
+    version_code INTEGER NOT NULL,
+    apk_size INTEGER,
+    release_notes TEXT DEFAULT '',
+    published_at INTEGER NOT NULL DEFAULT (unixepoch())
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_version_history_app_id ON version_history(app_id);
 `);
 
 const PORT = parseInt(process.env.PORT || "3000", 10);

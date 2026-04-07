@@ -117,6 +117,13 @@
   .app-name { font-weight: 600; font-size: 15px; }
   .app-pkg { font-size: 13px; color: var(--text-secondary); }
   .app-version { font-size: 13px; color: var(--text-secondary); white-space: nowrap; }
+  .app-downloads { font-size: 12px; color: var(--text-secondary); display: flex; align-items: center; gap: 4px; }
+  .stat-card { display: flex; gap: 24px; margin-bottom: 24px; }
+  .stat-item { text-align: center; }
+  .stat-value { font-size: 28px; font-weight: 700; color: var(--text); }
+  .stat-label { font-size: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
+  .history-row { padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px; display: flex; justify-content: space-between; align-items: center; }
+  .history-row:last-child { border-bottom: none; }
 
   /* Version list */
   .version-row {
@@ -461,7 +468,10 @@ async function loadApps() {
             <div class="app-name">${esc(a.name)}</div>
             <div class="app-pkg">${esc(a.packageName)}</div>
           </div>
-          <div class="app-version">${a.latestVersion ? `v${esc(a.latestVersion.versionName)}` : '<span class="badge">No versions</span>'}</div>
+          <div style="text-align:right">
+            <div class="app-version">${a.latestVersion ? `v${esc(a.latestVersion.versionName)}` : '<span class="badge">No versions</span>'}</div>
+            <div class="app-downloads">↓ ${a.downloadCount || 0} download${a.downloadCount === 1 ? '' : 's'}</div>
+          </div>
         </div>
       `).join('') + '</div>';
   } catch (err) {
@@ -493,11 +503,25 @@ async function showDetail(id) {
           ${app.description ? `<div class="desc">${esc(app.description)}</div>` : ''}
         </div>
       </div>
+      <div class="card stat-card">
+        <div class="stat-item">
+          <div class="stat-value">${app.downloadCount || 0}</div>
+          <div class="stat-label">Downloads</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value">${app.versions.length}</div>
+          <div class="stat-label">Current Version${app.versions.length !== 1 ? 's' : ''}</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value">${(app.versionHistory || []).length}</div>
+          <div class="stat-label">Total Releases</div>
+        </div>
+      </div>
       <div class="detail-actions">
         <button class="btn btn-primary btn-sm" onclick="showVersionModal()">Upload Version</button>
         <button class="btn btn-danger btn-sm" onclick="deleteApp('${app.id}', '${esc(app.name)}')">Delete App</button>
       </div>
-      <div class="section-title">Versions</div>
+      <div class="section-title">Current Version</div>
       ${app.versions.length ? `
         <div class="card" style="padding:12px 20px">
           ${app.versions.map(v => `
@@ -516,6 +540,23 @@ async function showDetail(id) {
           `).join('')}
         </div>
       ` : '<div class="card empty"><p>No versions uploaded yet.</p></div>'}
+
+      ${(app.versionHistory || []).length > 0 ? `
+        <div class="section-title" style="margin-top:24px">Release History</div>
+        <div class="card" style="padding:12px 20px">
+          ${app.versionHistory.map(h => `
+            <div class="history-row">
+              <div>
+                <span class="version-tag">v${esc(h.versionName)}</span>
+                <span class="badge" style="margin-left:8px">code ${h.versionCode}</span>
+                ${h.apkSize ? `<span class="file-size" style="margin-left:8px">${formatSize(h.apkSize)}</span>` : ''}
+              </div>
+              <span style="color:var(--text-secondary)">${formatDate(h.publishedAt)}</span>
+            </div>
+            ${h.releaseNotes ? `<div style="font-size:13px;color:var(--text-secondary);padding:0 0 8px">${esc(h.releaseNotes)}</div>` : ''}
+          `).join('')}
+        </div>
+      ` : ''}
     `;
   } catch (err) {
     view.innerHTML = `<div class="back-link" onclick="showList()">← Back</div><div class="card empty"><p>Failed to load: ${esc(err.message)}</p></div>`;

@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { eq, desc, and, lt } from "drizzle-orm";
+import { eq, desc, and, lt, sql, count } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db, schema } from "../db/index.js";
 import { uploadFile, deleteFile, getDownloadUrl } from "../services/r2.js";
@@ -28,12 +28,19 @@ app.get("/", async (c) => {
 
       const latest = latestVersion[0] || null;
 
+      // Get total download count
+      const dlCount = await db
+        .select({ total: count() })
+        .from(schema.downloads)
+        .where(eq(schema.downloads.appId, a.id));
+
       return {
         id: a.id,
         name: a.name,
         packageName: a.packageName,
         description: a.description,
         iconUrl: a.iconKey ? await getDownloadUrl(a.iconKey) : null,
+        downloadCount: dlCount[0]?.total ?? 0,
         latestVersion: latest
           ? {
               versionName: latest.versionName,
@@ -73,12 +80,26 @@ app.get("/:id", async (c) => {
     .where(eq(schema.versions.appId, id))
     .orderBy(desc(schema.versions.versionCode));
 
+  // Download count
+  const dlCount = await db
+    .select({ total: count() })
+    .from(schema.downloads)
+    .where(eq(schema.downloads.appId, id));
+
+  // Version history (all versions ever published)
+  const history = await db
+    .select()
+    .from(schema.versionHistory)
+    .where(eq(schema.versionHistory.appId, id))
+    .orderBy(desc(schema.versionHistory.versionCode));
+
   return c.json({
     id: a.id,
     name: a.name,
     packageName: a.packageName,
     description: a.description,
     iconUrl: a.iconKey ? await getDownloadUrl(a.iconKey) : null,
+    downloadCount: dlCount[0]?.total ?? 0,
     versions: appVersions.map((v) => ({
       id: v.id,
       versionName: v.versionName,
@@ -86,6 +107,13 @@ app.get("/:id", async (c) => {
       apkSize: v.apkSize,
       releaseNotes: v.releaseNotes,
       createdAt: v.createdAt,
+    })),
+    versionHistory: history.map((h) => ({
+      versionName: h.versionName,
+      versionCode: h.versionCode,
+      apkSize: h.apkSize,
+      releaseNotes: h.releaseNotes,
+      publishedAt: h.publishedAt,
     })),
     createdAt: a.createdAt,
     updatedAt: a.updatedAt,
@@ -107,13 +135,20 @@ app.get("/:id/download", async (c) => {
     return c.json({ error: "No versions found" }, 404);
   }
 
+  // Log the download
+  await db.insert(schema.downloads).values({
+    appId: id,
+    versionName: latestVersion[0].versionName,
+    versionCode: latestVersion[0].versionCode,
+  });
+
   const url = await getDownloadUrl(latestVersion[0].apkKey);
   return c.redirect(url);
 });
 
 // Download specific version APK
 app.get("/:id/download/:versionId", async (c) => {
-  const { versionId } = c.req.param();
+  const { id, versionId } = c.req.param();
 
   const version = await db
     .select()
@@ -124,6 +159,13 @@ app.get("/:id/download/:versionId", async (c) => {
   if (!version[0]) {
     return c.json({ error: "Version not found" }, 404);
   }
+
+  // Log the download
+  await db.insert(schema.downloads).values({
+    appId: version[0].appId,
+    versionName: version[0].versionName,
+    versionCode: version[0].versionCode,
+  });
 
   const url = await getDownloadUrl(version[0].apkKey);
   return c.redirect(url);
@@ -214,6 +256,15 @@ app.post("/upload", adminAuth, async (c) => {
     versionName: info.versionName,
     versionCode: info.versionCode,
     apkKey,
+    apkSize: apkBuffer.length,
+    releaseNotes,
+  });
+
+  // Record in version history
+  await db.insert(schema.versionHistory).values({
+    appId,
+    versionName: info.versionName,
+    versionCode: info.versionCode,
     apkSize: apkBuffer.length,
     releaseNotes,
   });
