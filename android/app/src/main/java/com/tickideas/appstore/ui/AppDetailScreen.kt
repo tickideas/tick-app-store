@@ -14,6 +14,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -80,6 +81,13 @@ class AppDetailViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun canInstallPackages(): Boolean {
         return tickApp.downloadHelper.canInstallPackages()
+    }
+
+    fun openApp(packageName: String): Boolean {
+        val intent = tickApp.downloadHelper.getLaunchIntent(packageName) ?: return false
+        intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        tickApp.startActivity(intent)
+        return true
     }
 
     private val _downloadStarted = MutableStateFlow(false)
@@ -221,7 +229,7 @@ fun AppDetailScreen(
                         )
                     }
 
-                    // Download button
+                    // Download / Open button
                     item {
                         val downloadStarted by viewModel.downloadStarted.collectAsState()
 
@@ -230,6 +238,7 @@ fun AppDetailScreen(
                             canInstall = viewModel.canInstallPackages(),
                             downloadStarted = downloadStarted,
                             onDownload = { viewModel.downloadApp(app.name, app.id) },
+                            onOpen = { viewModel.openApp(app.packageName) },
                             onRequestPermission = {
                                 val intent = (context.applicationContext as TickAppStore)
                                     .downloadHelper.getInstallPermissionIntent()
@@ -508,44 +517,53 @@ fun DownloadButton(
     canInstall: Boolean,
     downloadStarted: Boolean = false,
     onDownload: () -> Unit,
+    onOpen: () -> Unit = {},
     onRequestPermission: () -> Unit
 ) {
     when (installState) {
         InstallState.INSTALLED -> {
             Button(
-                onClick = {},
-                modifier = Modifier.fillMaxWidth(),
-                enabled = false,
-                colors = ButtonDefaults.buttonColors(
-                    disabledContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    disabledContentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                )
+                onClick = onOpen,
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Icon(Icons.Filled.CheckCircle, contentDescription = null, modifier = Modifier.size(20.dp))
+                Icon(Icons.Filled.OpenInNew, contentDescription = null, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("Installed")
+                Text("Open")
             }
         }
 
         InstallState.UPDATE_AVAILABLE -> {
-            Button(
-                onClick = {
-                    if (canInstall) onDownload() else onRequestPermission()
-                },
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                enabled = !downloadStarted
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                if (downloadStarted) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.onPrimary
-                    )
-                } else {
-                    Icon(Icons.Filled.SystemUpdate, contentDescription = null, modifier = Modifier.size(20.dp))
+                OutlinedButton(
+                    onClick = onOpen,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Filled.OpenInNew, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Open")
                 }
-                Spacer(Modifier.width(8.dp))
-                Text(if (downloadStarted) "Downloading..." else "Update")
+                Button(
+                    onClick = {
+                        if (canInstall) onDownload() else onRequestPermission()
+                    },
+                    modifier = Modifier.weight(1f),
+                    enabled = !downloadStarted
+                ) {
+                    if (downloadStarted) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                    } else {
+                        Icon(Icons.Filled.SystemUpdate, contentDescription = null, modifier = Modifier.size(18.dp))
+                    }
+                    Spacer(Modifier.width(6.dp))
+                    Text(if (downloadStarted) "Updating..." else "Update")
+                }
             }
         }
 

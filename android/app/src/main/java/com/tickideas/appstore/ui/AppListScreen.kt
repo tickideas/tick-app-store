@@ -172,7 +172,14 @@ fun AppListScreen(
                             tint = MaterialTheme.colorScheme.primary
                         )
                         Spacer(Modifier.width(12.dp))
-                        Text("Tick App Store", fontWeight = FontWeight.Bold)
+                        Column {
+                            Text("Tick App Store", fontWeight = FontWeight.Bold)
+                            Text(
+                                "v${BuildConfig.VERSION_NAME}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 },
                 actions = {

@@ -116,6 +116,13 @@ class DownloadHelper(private val context: Context) {
     }
 
     /**
+     * Get the launch intent for an installed app, or null if not launchable.
+     */
+    fun getLaunchIntent(packageName: String): Intent? {
+        return context.packageManager.getLaunchIntentForPackage(packageName)
+    }
+
+    /**
      * Check if a package is installed and return its version code, or null if not installed.
      */
     fun getInstalledVersionCode(packageName: String): Long? {
