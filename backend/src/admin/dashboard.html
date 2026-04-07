@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tick App Store — Admin</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f8f9fa;
+    --surface: #ffffff;
+    --border: #e2e5e9;
+    --text: #1a1a1a;
+    --text-secondary: #6b7280;
+    --primary: #2563eb;
+    --primary-hover: #1d4ed8;
+    --danger: #dc2626;
+    --danger-hover: #b91c1c;
+    --success: #16a34a;
+    --radius: 8px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+
+  /* Layout */
+  .header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .header h1 { font-size: 18px; font-weight: 600; }
+  .header-actions { display: flex; gap: 8px; align-items: center; }
+  .container { max-width: 960px; margin: 0 auto; padding: 24px; }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 16px; border: none; border-radius: var(--radius);
+    font-size: 14px; font-weight: 500; cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover { background: var(--primary-hover); }
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn-danger:hover { background: var(--danger-hover); }
+  .btn-ghost { background: transparent; color: var(--text-secondary); border: 1px solid var(--border); }
+  .btn-ghost:hover { background: var(--bg); }
+  .btn-sm { padding: 6px 12px; font-size: 13px; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Cards */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+
+  /* Forms */
+  .form-group { margin-bottom: 16px; }
+  .form-group label { display: block; font-size: 13px; font-weight: 500; color: var(--text-secondary); margin-bottom: 4px; }
+  .form-group input, .form-group textarea {
+    width: 100%; padding: 10px 12px; border: 1px solid var(--border);
+    border-radius: var(--radius); font-size: 14px; font-family: inherit;
+  }
+  .form-group input:focus, .form-group textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+  .form-group textarea { resize: vertical; min-height: 80px; }
+
+  /* File drop zone */
+  .drop-zone {
+    border: 2px dashed var(--border); border-radius: var(--radius);
+    padding: 32px; text-align: center; cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    color: var(--text-secondary); font-size: 14px;
+  }
+  .drop-zone:hover, .drop-zone.dragover { border-color: var(--primary); background: rgba(37,99,235,0.03); }
+  .drop-zone.has-file { border-color: var(--success); background: rgba(22,163,74,0.03); }
+  .drop-zone input[type="file"] { display: none; }
+
+  /* App list */
+  .app-row {
+    display: flex; align-items: center; gap: 16px;
+    padding: 16px 20px; cursor: pointer;
+    transition: background 0.1s;
+    border-bottom: 1px solid var(--border);
+  }
+  .app-row:last-child { border-bottom: none; }
+  .app-row:hover { background: var(--bg); }
+  .app-icon {
+    width: 48px; height: 48px; border-radius: 10px;
+    background: var(--bg); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; color: var(--text-secondary); flex-shrink: 0;
+    overflow: hidden;
+  }
+  .app-icon img { width: 100%; height: 100%; object-fit: cover; }
+  .app-info { flex: 1; min-width: 0; }
+  .app-name { font-weight: 600; font-size: 15px; }
+  .app-pkg { font-size: 13px; color: var(--text-secondary); }
+  .app-version { font-size: 13px; color: var(--text-secondary); white-space: nowrap; }
+
+  /* Version list */
+  .version-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 0; border-bottom: 1px solid var(--border);
+    font-size: 14px;
+  }
+  .version-row:last-child { border-bottom: none; }
+  .version-tag { font-weight: 600; font-family: 'SF Mono', SFMono-Regular, monospace, monospace; }
+
+  /* Empty state */
+  .empty { text-align: center; padding: 48px 24px; color: var(--text-secondary); }
+  .empty-icon { font-size: 48px; margin-bottom: 12px; }
+  .empty p { margin-bottom: 16px; }
+
+  /* Login */
+  .login-wrapper {
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100vh; padding: 24px;
+  }
+  .login-card { width: 100%; max-width: 400px; }
+  .login-card h1 { font-size: 22px; margin-bottom: 4px; }
+  .login-card p { color: var(--text-secondary); font-size: 14px; margin-bottom: 24px; }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 100; padding: 24px;
+  }
+  .modal { background: var(--surface); border-radius: 12px; width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; }
+  .modal-header { padding: 20px 24px 0; display: flex; align-items: center; justify-content: space-between; }
+  .modal-header h2 { font-size: 18px; }
+  .modal-body { padding: 20px 24px; }
+  .modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 24px; right: 24px;
+    background: var(--text); color: #fff; padding: 12px 20px;
+    border-radius: var(--radius); font-size: 14px;
+    z-index: 200; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    animation: slideIn 0.2s ease;
+  }
+  .toast.error { background: var(--danger); }
+  .toast.success { background: var(--success); }
+  @keyframes slideIn { from { transform: translateY(12px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+  /* Misc */
+  .section-title { font-size: 14px; font-weight: 600; color: var(--text-secondary); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .back-link { font-size: 14px; color: var(--primary); cursor: pointer; display: inline-flex; align-items: center; gap: 4px; margin-bottom: 16px; }
+  .back-link:hover { text-decoration: underline; }
+  .detail-header { display: flex; gap: 20px; align-items: flex-start; margin-bottom: 24px; }
+  .detail-icon { width: 72px; height: 72px; border-radius: 14px; background: var(--bg); border: 1px solid var(--border); overflow: hidden; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 28px; color: var(--text-secondary); }
+  .detail-icon img { width: 100%; height: 100%; object-fit: cover; }
+  .detail-meta h2 { font-size: 22px; margin-bottom: 2px; }
+  .detail-meta .pkg { font-size: 14px; color: var(--text-secondary); font-family: 'SF Mono', SFMono-Regular, monospace; }
+  .detail-meta .desc { font-size: 14px; color: var(--text-secondary); margin-top: 8px; }
+  .detail-actions { display: flex; gap: 8px; margin-bottom: 24px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; background: var(--bg); border: 1px solid var(--border); }
+  .file-size { color: var(--text-secondary); }
+  .upload-progress { margin-top: 12px; }
+  .progress-bar { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--primary); transition: width 0.3s; }
+</style>
+</head>
+<body>
+
+<!-- Login Screen -->
+<div id="loginScreen" class="login-wrapper">
+  <div class="card login-card">
+    <h1>🏪 Tick App Store</h1>
+    <p>Sign in with your admin API key to manage apps.</p>
+    <form id="loginForm">
+      <div class="form-group">
+        <label for="apiKeyInput">Admin API Key</label>
+        <input type="password" id="apiKeyInput" placeholder="Enter your API key" required>
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%">Sign In</button>
+    </form>
+  </div>
+</div>
+
+<!-- Main App (hidden until login) -->
+<div id="mainApp" style="display:none">
+  <div class="header">
+    <h1>🏪 Tick App Store</h1>
+    <div class="header-actions">
+      <button class="btn btn-ghost btn-sm" onclick="logout()">Sign Out</button>
+    </div>
+  </div>
+
+  <!-- App List View -->
+  <div id="listView" class="container">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px">
+      <h2 style="font-size:20px">Apps</h2>
+      <button class="btn btn-primary" onclick="showCreateModal()">+ New App</button>
+    </div>
+    <div id="appList"></div>
+  </div>
+
+  <!-- App Detail View -->
+  <div id="detailView" class="container" style="display:none"></div>
+</div>
+
+<!-- Create App Modal -->
+<div id="createModal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeCreateModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>New App</h2>
+      <button class="btn btn-ghost btn-sm" onclick="closeCreateModal()">✕</button>
+    </div>
+    <form id="createAppForm">
+      <div class="modal-body">
+        <div class="form-group">
+          <label>App Name *</label>
+          <input type="text" name="name" placeholder="My App" required>
+        </div>
+        <div class="form-group">
+          <label>Package Name *</label>
+          <input type="text" name="packageName" placeholder="com.tickideas.myapp" required>
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <textarea name="description" placeholder="What does this app do?"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Icon</label>
+          <div class="drop-zone" id="iconDropZone" onclick="this.querySelector('input').click()">
+            <input type="file" name="icon" accept="image/*">
+            <span class="drop-text">Drop an image or click to browse</span>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeCreateModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="createBtn">Create App</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Upload Version Modal -->
+<div id="versionModal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeVersionModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Upload New Version</h2>
+      <button class="btn btn-ghost btn-sm" onclick="closeVersionModal()">✕</button>
+    </div>
+    <form id="uploadVersionForm">
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Version Name *</label>
+          <input type="text" name="versionName" placeholder="1.0.0" required>
+        </div>
+        <div class="form-group">
+          <label>Version Code *</label>
+          <input type="number" name="versionCode" placeholder="1" min="1" required>
+        </div>
+        <div class="form-group">
+          <label>Release Notes</label>
+          <textarea name="releaseNotes" placeholder="What's new in this version?"></textarea>
+        </div>
+        <div class="form-group">
+          <label>APK File *</label>
+          <div class="drop-zone" id="apkDropZone" onclick="this.querySelector('input').click()">
+            <input type="file" name="apk" accept=".apk" required>
+            <span class="drop-text">Drop APK or click to browse</span>
+          </div>
+        </div>
+        <div class="upload-progress" id="uploadProgress" style="display:none">
+          <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px">
+            <span>Uploading...</span>
+            <span id="uploadPercent">0%</span>
+          </div>
+          <div class="progress-bar"><div class="progress-fill" id="uploadFill" style="width:0%"></div></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeVersionModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="uploadBtn">Upload</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+// --- State ---
+let apiKey = sessionStorage.getItem('adminApiKey') || '';
+let currentAppId = null;
+
+// --- API helper ---
+async function api(path, opts = {}) {
+  const headers = { 'X-API-Key': apiKey, ...(opts.headers || {}) };
+  const res = await fetch('/api' + path, { ...opts, headers });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || 'Request failed');
+  }
+  return res.json();
+}
+
+// --- Toast ---
+function toast(msg, type = '') {
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+// --- Auth ---
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  apiKey = document.getElementById('apiKeyInput').value.trim();
+  try {
+    await api('/apps');
+    sessionStorage.setItem('adminApiKey', apiKey);
+    showApp();
+  } catch {
+    toast('Invalid API key', 'error');
+    apiKey = '';
+  }
+});
+
+function showApp() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('mainApp').style.display = 'block';
+  loadApps();
+}
+
+function logout() {
+  apiKey = '';
+  sessionStorage.removeItem('adminApiKey');
+  document.getElementById('mainApp').style.display = 'none';
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('apiKeyInput').value = '';
+}
+
+// Auto-login if key is saved
+if (apiKey) {
+  api('/apps').then(() => showApp()).catch(() => {
+    apiKey = '';
+    sessionStorage.removeItem('adminApiKey');
+  });
+}
+
+// --- App List ---
+async function loadApps() {
+  const container = document.getElementById('appList');
+  try {
+    const data = await api('/apps');
+    if (!data.apps.length) {
+      container.innerHTML = `
+        <div class="card empty">
+          <div class="empty-icon">📦</div>
+          <p>No apps yet. Create your first one!</p>
+          <button class="btn btn-primary" onclick="showCreateModal()">+ New App</button>
+        </div>`;
+      return;
+    }
+    container.innerHTML = '<div class="card" style="padding:0">' +
+      data.apps.map(a => `
+        <div class="app-row" onclick="showDetail('${a.id}')">
+          <div class="app-icon">${a.iconUrl ? `<img src="${a.iconUrl}">` : '📱'}</div>
+          <div class="app-info">
+            <div class="app-name">${esc(a.name)}</div>
+            <div class="app-pkg">${esc(a.packageName)}</div>
+          </div>
+          <div class="app-version">${a.latestVersion ? `v${esc(a.latestVersion.versionName)}` : '<span class="badge">No versions</span>'}</div>
+        </div>
+      `).join('') + '</div>';
+  } catch (err) {
+    container.innerHTML = `<div class="card empty"><p>Failed to load apps: ${esc(err.message)}</p></div>`;
+  }
+}
+
+// --- App Detail ---
+async function showDetail(id) {
+  currentAppId = id;
+  document.getElementById('listView').style.display = 'none';
+  const view = document.getElementById('detailView');
+  view.style.display = 'block';
+  view.innerHTML = '<p style="color:var(--text-secondary)">Loading...</p>';
+
+  try {
+    const app = await api(`/apps/${id}`);
+    view.innerHTML = `
+      <div class="back-link" onclick="showList()">← Back to apps</div>
+      <div class="detail-header">
+        <div class="detail-icon">${app.iconUrl ? `<img src="${app.iconUrl}">` : '📱'}</div>
+        <div class="detail-meta">
+          <h2>${esc(app.name)}</h2>
+          <div class="pkg">${esc(app.packageName)}</div>
+          ${app.description ? `<div class="desc">${esc(app.description)}</div>` : ''}
+        </div>
+      </div>
+      <div class="detail-actions">
+        <button class="btn btn-primary btn-sm" onclick="showVersionModal()">Upload Version</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteApp('${app.id}', '${esc(app.name)}')">Delete App</button>
+      </div>
+      <div class="section-title">Versions</div>
+      ${app.versions.length ? `
+        <div class="card" style="padding:12px 20px">
+          ${app.versions.map(v => `
+            <div class="version-row">
+              <div>
+                <span class="version-tag">v${esc(v.versionName)}</span>
+                <span class="badge" style="margin-left:8px">code ${v.versionCode}</span>
+                ${v.apkSize ? `<span class="file-size" style="margin-left:8px">${formatSize(v.apkSize)}</span>` : ''}
+              </div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="font-size:13px;color:var(--text-secondary)">${formatDate(v.createdAt)}</span>
+                <a href="/api/apps/${app.id}/download/${v.id}" class="btn btn-ghost btn-sm" download>Download</a>
+              </div>
+            </div>
+            ${v.releaseNotes ? `<div style="font-size:13px;color:var(--text-secondary);padding:0 0 12px;border-bottom:1px solid var(--border);margin-bottom:0">${esc(v.releaseNotes)}</div>` : ''}
+          `).join('')}
+        </div>
+      ` : '<div class="card empty"><p>No versions uploaded yet.</p></div>'}
+    `;
+  } catch (err) {
+    view.innerHTML = `<div class="back-link" onclick="showList()">← Back</div><div class="card empty"><p>Failed to load: ${esc(err.message)}</p></div>`;
+  }
+}
+
+function showList() {
+  document.getElementById('detailView').style.display = 'none';
+  document.getElementById('listView').style.display = 'block';
+  loadApps();
+}
+
+// --- Create App ---
+function showCreateModal() { document.getElementById('createModal').style.display = 'flex'; }
+function closeCreateModal() {
+  document.getElementById('createModal').style.display = 'none';
+  document.getElementById('createAppForm').reset();
+  resetDropZone('iconDropZone');
+}
+
+document.getElementById('createAppForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('createBtn');
+  btn.disabled = true; btn.textContent = 'Creating...';
+
+  const form = new FormData(e.target);
+  try {
+    await api('/apps', { method: 'POST', body: form });
+    toast('App created', 'success');
+    closeCreateModal();
+    loadApps();
+  } catch (err) {
+    toast(err.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Create App';
+  }
+});
+
+// --- Upload Version ---
+function showVersionModal() { document.getElementById('versionModal').style.display = 'flex'; }
+function closeVersionModal() {
+  document.getElementById('versionModal').style.display = 'none';
+  document.getElementById('uploadVersionForm').reset();
+  document.getElementById('uploadProgress').style.display = 'none';
+  resetDropZone('apkDropZone');
+}
+
+document.getElementById('uploadVersionForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('uploadBtn');
+  btn.disabled = true; btn.textContent = 'Uploading...';
+
+  const form = new FormData(e.target);
+  const progress = document.getElementById('uploadProgress');
+  const fill = document.getElementById('uploadFill');
+  const pct = document.getElementById('uploadPercent');
+  progress.style.display = 'block';
+
+  try {
+    await new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `/api/apps/${currentAppId}/versions`);
+      xhr.setRequestHeader('X-API-Key', apiKey);
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          const p = Math.round((e.loaded / e.total) * 100);
+          fill.style.width = p + '%';
+          pct.textContent = p + '%';
+        }
+      };
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) resolve();
+        else {
+          const err = JSON.parse(xhr.responseText || '{}');
+          reject(new Error(err.error || 'Upload failed'));
+        }
+      };
+      xhr.onerror = () => reject(new Error('Network error'));
+      xhr.send(form);
+    });
+    toast('Version uploaded', 'success');
+    closeVersionModal();
+    showDetail(currentAppId);
+  } catch (err) {
+    toast(err.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Upload';
+  }
+});
+
+// --- Delete App ---
+async function deleteApp(id, name) {
+  if (!confirm(`Delete "${name}" and all its versions? This cannot be undone.`)) return;
+  try {
+    await api(`/apps/${id}`, { method: 'DELETE' });
+    toast('App deleted', 'success');
+    showList();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+// --- Drop zones ---
+function setupDropZone(zoneId) {
+  const zone = document.getElementById(zoneId);
+  const input = zone.querySelector('input[type="file"]');
+  const textEl = zone.querySelector('.drop-text');
+
+  input.addEventListener('change', () => {
+    if (input.files.length) {
+      zone.classList.add('has-file');
+      textEl.textContent = input.files[0].name + ' (' + formatSize(input.files[0].size) + ')';
+    }
+  });
+
+  zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('dragover'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+  zone.addEventListener('drop', (e) => {
+    e.preventDefault(); zone.classList.remove('dragover');
+    if (e.dataTransfer.files.length) {
+      input.files = e.dataTransfer.files;
+      input.dispatchEvent(new Event('change'));
+    }
+  });
+}
+
+function resetDropZone(zoneId) {
+  const zone = document.getElementById(zoneId);
+  zone.classList.remove('has-file', 'dragover');
+  const accept = zone.querySelector('input').accept;
+  zone.querySelector('.drop-text').textContent = accept === '.apk' ? 'Drop APK or click to browse' : 'Drop an image or click to browse';
+}
+
+setupDropZone('iconDropZone');
+setupDropZone('apkDropZone');
+
+// --- Helpers ---
+function esc(s) {
+  if (!s) return '';
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function formatSize(bytes) {
+  if (!bytes) return '';
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / 1048576).toFixed(1) + ' MB';
+}
+
+function formatDate(ts) {
+  if (!ts) return '';
+  const d = new Date(typeof ts === 'number' ? ts * 1000 : ts);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+</script>
+</body>
+</html>

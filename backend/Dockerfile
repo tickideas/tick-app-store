@@ -5,6 +5,7 @@ RUN npm ci
 COPY backend/tsconfig.json ./
 COPY backend/src ./src
 RUN npm run build
+RUN cp -r src/admin dist/admin
 
 FROM node:22-alpine
 WORKDIR /app

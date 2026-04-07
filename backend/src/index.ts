@@ -4,6 +4,7 @@ import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import appsRoutes from "./routes/apps.js";
 import storeRoutes from "./routes/store.js";
+import adminRoutes from "./routes/admin.js";
 import { db } from "./db/index.js";
 
 const app = new Hono();
@@ -23,6 +24,7 @@ app.get("/", (c) => {
 // Routes
 app.route("/api/apps", appsRoutes);
 app.route("/api/store", storeRoutes);
+app.route("/admin", adminRoutes);
 
 // Run migrations inline (create tables if they don't exist)
 const sqlite = (db as any).$client;
