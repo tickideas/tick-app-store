@@ -246,6 +246,21 @@
       <h2 style="font-size:20px">Apps</h2>
     </div>
     <div id="appList"></div>
+
+    <!-- Store self-update section -->
+    <div style="margin-top:24px">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px">
+        <h2 style="font-size:20px">Store App</h2>
+      </div>
+      <div class="card">
+        <div id="storeInfo" style="margin-bottom:16px"><span style="color:var(--text-secondary);font-size:14px">Loading...</span></div>
+        <div class="drop-zone" id="storeDropZone" onclick="this.querySelector('input').click()">
+          <input type="file" accept=".apk">
+          <span class="drop-text">Drop store APK to update</span>
+        </div>
+        <div id="storeUploadArea" style="display:none"></div>
+      </div>
+    </div>
   </div>
 
   <!-- App Detail View -->
@@ -354,6 +369,7 @@ function showApp() {
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('mainApp').style.display = 'block';
   loadApps();
+  loadStoreInfo();
 }
 
 function logout() {
@@ -689,6 +705,79 @@ function initials(name, id, large) {
   const size = large ? 'font-size:26px' : '';
   return `<div class="icon-initials" style="background:${bg};${size}">${esc(letters)}</div>`;
 }
+
+// --- Store self-update ---
+async function loadStoreInfo() {
+  const el = document.getElementById('storeInfo');
+  try {
+    const info = await api('/store/version');
+    el.innerHTML = `
+      <div style="display:flex;gap:24px;align-items:center">
+        <div>
+          <div style="font-size:13px;color:var(--text-secondary)">Current Version</div>
+          <div style="font-size:18px;font-weight:600">v${esc(info.versionName)} <span class="badge">code ${info.versionCode}</span></div>
+        </div>
+      </div>
+    `;
+  } catch {
+    el.innerHTML = '<span style="color:var(--text-secondary);font-size:14px">No store version configured yet</span>';
+  }
+}
+
+function setupStoreUpload() {
+  const zone = document.getElementById('storeDropZone');
+  const input = zone.querySelector('input[type="file"]');
+  const area = document.getElementById('storeUploadArea');
+
+  function handleFile(file) {
+    if (!file || !file.name.endsWith('.apk')) { toast('Please select an APK file', 'error'); return; }
+    zone.classList.add('has-file');
+    zone.querySelector('.drop-text').textContent = file.name + ' (' + formatSize(file.size) + ')';
+
+    area.style.display = 'block';
+    area.innerHTML = `
+      <div style="margin-top:12px">
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
+          <span>Uploading store APK...</span>
+          <span id="storeUploadPct">0%</span>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" id="storeUploadFill" style="width:0%"></div></div>
+      </div>
+    `;
+
+    const form = new FormData();
+    form.append('apk', file);
+
+    xhrUpload('/api/store/upload', form, (pct) => {
+      document.getElementById('storeUploadFill').style.width = pct + '%';
+      document.getElementById('storeUploadPct').textContent = pct + '%';
+    }).then((result) => {
+      area.innerHTML = `
+        <div style="margin-top:12px;color:var(--success);font-size:14px">
+          ✓ Store updated to v${esc(result.versionName)} (code ${result.versionCode}) · ${formatSize(result.apkSize)}
+        </div>
+      `;
+      zone.classList.remove('has-file');
+      zone.querySelector('.drop-text').textContent = 'Drop store APK to update';
+      input.value = '';
+      loadStoreInfo();
+    }).catch((err) => {
+      area.innerHTML = `<div style="margin-top:12px;color:var(--danger);font-size:14px">✕ Upload failed: ${esc(err.message)}</div>`;
+      zone.classList.remove('has-file');
+      zone.querySelector('.drop-text').textContent = 'Drop store APK to update';
+      input.value = '';
+    });
+  }
+
+  input.addEventListener('change', () => { if (input.files.length) handleFile(input.files[0]); });
+  zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('dragover'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+  zone.addEventListener('drop', (e) => {
+    e.preventDefault(); zone.classList.remove('dragover');
+    if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+  });
+}
+setupStoreUpload();
 
 // Upload icon from detail view
 async function uploadIcon(appId, input) {

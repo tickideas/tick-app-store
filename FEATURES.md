@@ -39,6 +39,15 @@
 - [x] Auto-incrementing version (code + name) on release builds
 - [x] FileProvider for secure APK install
 
+### Store Self-Update
+- [x] Backend `/api/store/version` returns current store version
+- [x] Backend `/api/store/download` serves latest store APK
+- [x] Backend `/api/store/upload` — admin uploads new store APK (auto-extracts version)
+- [x] Store version managed in DB (no env var changes needed for updates)
+- [x] Android checks for store update on launch (compares `versionCode`)
+- [x] Update banner on app list — shows current → new version, "Update" / "Later" buttons
+- [x] Admin dashboard — "Store App" section with version display and APK upload
+
 ### Infrastructure
 - [x] Deployed to Dokploy at `apps-api.tikd.dev`
 - [x] SQLite with WAL mode for performance
@@ -50,10 +59,8 @@
 ## 🔲 Planned
 
 ### Store Self-Update
-- [ ] Android app checks for its own updates on launch
-- [ ] Prompt user to download and install store update
-- [ ] Backend serves store APK via `/api/store/download`
-- [ ] Version comparison via `/api/store/version`
+- [ ] Background update check with periodic interval
+- [ ] Force-update option for critical versions
 
 ### UI Polish
 - [ ] Pull-to-refresh on app list

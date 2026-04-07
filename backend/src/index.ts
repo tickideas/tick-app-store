@@ -75,6 +75,15 @@ sqlite.exec(`
   );
 
   CREATE INDEX IF NOT EXISTS idx_version_history_app_id ON version_history(app_id);
+
+  CREATE TABLE IF NOT EXISTS store_info (
+    id TEXT PRIMARY KEY DEFAULT 'store',
+    version_name TEXT NOT NULL,
+    version_code INTEGER NOT NULL,
+    apk_key TEXT NOT NULL,
+    apk_size INTEGER,
+    updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+  );
 `);
 
 const PORT = parseInt(process.env.PORT || "3000", 10);

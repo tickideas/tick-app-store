@@ -1,6 +1,7 @@
 package com.tickideas.appstore.ui
 
 import android.app.Application
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -18,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -26,8 +28,10 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
+import com.tickideas.appstore.BuildConfig
 import com.tickideas.appstore.TickAppStore
 import com.tickideas.appstore.data.AppInfo
+import com.tickideas.appstore.data.StoreVersion
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -45,8 +49,16 @@ class AppListViewModel(application: Application) : AndroidViewModel(application)
     private val _state = MutableStateFlow<AppListState>(AppListState.Loading)
     val state = _state.asStateFlow()
 
+    // Store self-update state
+    private val _storeUpdate = MutableStateFlow<StoreVersion?>(null)
+    val storeUpdate = _storeUpdate.asStateFlow()
+
+    private val _updatingStore = MutableStateFlow(false)
+    val updatingStore = _updatingStore.asStateFlow()
+
     init {
         loadApps()
+        checkStoreUpdate()
     }
 
     fun loadApps() {
@@ -59,6 +71,35 @@ class AppListViewModel(application: Application) : AndroidViewModel(application)
                 _state.value = AppListState.Error(e.message ?: "Failed to load apps")
             }
         }
+    }
+
+    private fun checkStoreUpdate() {
+        viewModelScope.launch {
+            try {
+                val remote = app.repository.getStoreVersion()
+                if (remote.versionCode > BuildConfig.VERSION_CODE) {
+                    _storeUpdate.value = remote
+                }
+            } catch (_: Exception) {
+                // Silently ignore — not critical
+            }
+        }
+    }
+
+    fun downloadStoreUpdate() {
+        _updatingStore.value = true
+        val url = "${BuildConfig.API_BASE_URL}/api/store/download"
+        val id = app.downloadHelper.downloadAndInstall("Tick App Store", url) { error ->
+            Toast.makeText(app, error, Toast.LENGTH_LONG).show()
+            _updatingStore.value = false
+        }
+        if (id != -1L) {
+            Toast.makeText(app, "Downloading store update...", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    fun dismissStoreUpdate() {
+        _storeUpdate.value = null
     }
 
     fun getInstalledVersionCode(packageName: String): Long? {
@@ -75,6 +116,9 @@ fun AppListScreen(
     viewModel: AppListViewModel = viewModel()
 ) {
     val state by viewModel.state.collectAsState()
+    val storeUpdate by viewModel.storeUpdate.collectAsState()
+    val updatingStore by viewModel.updatingStore.collectAsState()
+    val context = LocalContext.current
 
     Scaffold(
         topBar = {
@@ -129,35 +173,50 @@ fun AppListScreen(
             }
 
             is AppListState.Success -> {
-                if (s.apps.isEmpty()) {
-                    Box(
-                        Modifier
-                            .fillMaxSize()
-                            .padding(padding),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            "No apps available yet",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding)
+                ) {
+                    // Store self-update banner
+                    storeUpdate?.let { update ->
+                        StoreUpdateBanner(
+                            newVersion = update.versionName,
+                            currentVersion = BuildConfig.VERSION_NAME,
+                            updating = updatingStore,
+                            onUpdate = { viewModel.downloadStoreUpdate() },
+                            onDismiss = { viewModel.dismissStoreUpdate() }
                         )
                     }
-                } else {
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(2),
-                        contentPadding = PaddingValues(16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(padding)
-                    ) {
-                        items(s.apps, key = { it.id }) { app ->
-                            AppCard(
-                                app = app,
-                                installedVersionCode = viewModel.getInstalledVersionCode(app.packageName),
-                                onClick = { onAppClick(app.id) }
+
+                    if (s.apps.isEmpty()) {
+                        Box(
+                            Modifier
+                                .fillMaxSize()
+                                .weight(1f),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                "No apps available yet",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                        }
+                    } else {
+                        LazyVerticalGrid(
+                            columns = GridCells.Fixed(2),
+                            contentPadding = PaddingValues(16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            items(s.apps, key = { it.id }) { app ->
+                                AppCard(
+                                    app = app,
+                                    installedVersionCode = viewModel.getInstalledVersionCode(app.packageName),
+                                    onClick = { onAppClick(app.id) }
+                                )
+                            }
                         }
                     }
                 }
@@ -293,4 +352,71 @@ fun AppCard(
 
 enum class InstallState {
     NOT_INSTALLED, INSTALLED, UPDATE_AVAILABLE
+}
+
+// --- Store Self-Update Banner ---
+
+@Composable
+fun StoreUpdateBanner(
+    newVersion: String,
+    currentVersion: String,
+    updating: Boolean,
+    onUpdate: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                Icons.Filled.SystemUpdate,
+                contentDescription = null,
+                modifier = Modifier.size(32.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    "Store update available",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+                Text(
+                    "v$currentVersion → v$newVersion",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                )
+            }
+            if (updating) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(24.dp),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            } else {
+                TextButton(onClick = onDismiss) {
+                    Text("Later")
+                }
+                Spacer(Modifier.width(4.dp))
+                Button(
+                    onClick = onUpdate,
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    Text("Update")
+                }
+            }
+        }
+    }
 }

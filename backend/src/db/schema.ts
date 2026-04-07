@@ -42,6 +42,18 @@ export const downloads = sqliteTable("downloads", {
     .$defaultFn(() => new Date()),
 });
 
+// Store app self-update metadata
+export const storeInfo = sqliteTable("store_info", {
+  id: text("id").primaryKey(), // always "store"
+  versionName: text("version_name").notNull(),
+  versionCode: integer("version_code").notNull(),
+  apkKey: text("apk_key").notNull(),
+  apkSize: integer("apk_size"),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
 // History of all published versions (kept after replacement)
 export const versionHistory = sqliteTable("version_history", {
   id: integer("id").primaryKey({ autoIncrement: true }),
