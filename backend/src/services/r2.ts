@@ -46,8 +46,13 @@ export async function getDownloadUrl(
   expiresIn = 3600
 ): Promise<string> {
   // If a public URL base is configured, use that (for public R2 buckets)
-  if (process.env.R2_PUBLIC_URL) {
-    return `${process.env.R2_PUBLIC_URL}/${key}`;
+  const publicUrl = process.env.R2_PUBLIC_URL?.replace(/\/+$/, "");
+  if (publicUrl) {
+    const url = `${publicUrl}/${key}`;
+    if (!url.startsWith("https://") && !url.startsWith("http://")) {
+      console.error(`[R2] Invalid R2_PUBLIC_URL: "${publicUrl}" — must start with https://`);
+    }
+    return url;
   }
 
   // Otherwise generate a presigned URL

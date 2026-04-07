@@ -27,6 +27,7 @@ import com.tickideas.appstore.BuildConfig
 import com.tickideas.appstore.TickAppStore
 import com.tickideas.appstore.data.AppDetail
 import com.tickideas.appstore.data.AppVersionDetail
+import android.widget.Toast
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -64,14 +65,28 @@ class AppDetailViewModel(application: Application) : AndroidViewModel(applicatio
         return tickApp.downloadHelper.canInstallPackages()
     }
 
+    private val _downloadStarted = MutableStateFlow(false)
+    val downloadStarted = _downloadStarted.asStateFlow()
+
     fun downloadApp(appName: String, appId: String) {
         val url = tickApp.repository.getDownloadUrl(BuildConfig.API_BASE_URL, appId)
-        tickApp.downloadHelper.downloadAndInstall(appName, url)
+        val id = tickApp.downloadHelper.downloadAndInstall(appName, url) { error ->
+            Toast.makeText(tickApp, error, Toast.LENGTH_LONG).show()
+        }
+        if (id != -1L) {
+            _downloadStarted.value = true
+            Toast.makeText(tickApp, "Downloading $appName...", Toast.LENGTH_SHORT).show()
+        }
     }
 
     fun downloadVersion(appName: String, appId: String, versionId: String) {
         val url = tickApp.repository.getVersionDownloadUrl(BuildConfig.API_BASE_URL, appId, versionId)
-        tickApp.downloadHelper.downloadAndInstall(appName, url)
+        val id = tickApp.downloadHelper.downloadAndInstall(appName, url) { error ->
+            Toast.makeText(tickApp, error, Toast.LENGTH_LONG).show()
+        }
+        if (id != -1L) {
+            Toast.makeText(tickApp, "Downloading...", Toast.LENGTH_SHORT).show()
+        }
     }
 }
 
@@ -161,9 +176,12 @@ fun AppDetailScreen(
 
                     // Download button
                     item {
+                        val downloadStarted by viewModel.downloadStarted.collectAsState()
+
                         DownloadButton(
                             installState = installState,
                             canInstall = viewModel.canInstallPackages(),
+                            downloadStarted = downloadStarted,
                             onDownload = { viewModel.downloadApp(app.name, app.id) },
                             onRequestPermission = {
                                 val intent = (context.applicationContext as TickAppStore)
@@ -285,6 +303,7 @@ fun AppHeader(app: AppDetail, installState: InstallState) {
 fun DownloadButton(
     installState: InstallState,
     canInstall: Boolean,
+    downloadStarted: Boolean = false,
     onDownload: () -> Unit,
     onRequestPermission: () -> Unit
 ) {
@@ -323,11 +342,20 @@ fun DownloadButton(
                 onClick = {
                     if (canInstall) onDownload() else onRequestPermission()
                 },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !downloadStarted
             ) {
-                Icon(Icons.Filled.Download, contentDescription = null, modifier = Modifier.size(20.dp))
+                if (downloadStarted) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                } else {
+                    Icon(Icons.Filled.Download, contentDescription = null, modifier = Modifier.size(20.dp))
+                }
                 Spacer(Modifier.width(8.dp))
-                Text("Download & Install")
+                Text(if (downloadStarted) "Downloading..." else "Download & Install")
             }
         }
     }

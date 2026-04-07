@@ -39,20 +39,30 @@ class DownloadHelper(private val context: Context) {
      * Download an APK and install it when complete.
      * Returns the download ID for tracking progress.
      */
-    fun downloadAndInstall(appName: String, downloadUrl: String): Long {
+    fun downloadAndInstall(appName: String, downloadUrl: String, onError: ((String) -> Unit)? = null): Long {
         val fileName = "${appName.replace(" ", "_")}_${System.currentTimeMillis()}.apk"
 
-        val request = DownloadManager.Request(Uri.parse(downloadUrl))
-            .setTitle("Downloading $appName")
-            .setDescription("Tick App Store")
-            .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-            .setDestinationInExternalPublicDir(
-                Environment.DIRECTORY_DOWNLOADS,
-                "TickAppStore/$fileName"
-            )
-            .setMimeType("application/vnd.android.package-archive")
+        val request = try {
+            DownloadManager.Request(Uri.parse(downloadUrl))
+                .setTitle("Downloading $appName")
+                .setDescription("Tick App Store")
+                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                .setDestinationInExternalPublicDir(
+                    Environment.DIRECTORY_DOWNLOADS,
+                    "TickAppStore/$fileName"
+                )
+                .setMimeType("application/vnd.android.package-archive")
+        } catch (e: Exception) {
+            onError?.invoke("Failed to create download request: ${e.message}")
+            return -1
+        }
 
-        val downloadId = downloadManager.enqueue(request)
+        val downloadId = try {
+            downloadManager.enqueue(request)
+        } catch (e: Exception) {
+            onError?.invoke("Failed to start download: ${e.message}")
+            return -1
+        }
 
         // Listen for download completion to trigger install
         val receiver = object : BroadcastReceiver() {
