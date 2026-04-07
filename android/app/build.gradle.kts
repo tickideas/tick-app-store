@@ -1,7 +1,35 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
+}
+
+// --- Auto-incrementing version from version.properties ---
+val versionPropsFile = rootProject.file("version.properties")
+val versionProps = Properties().apply {
+    if (versionPropsFile.exists()) load(versionPropsFile.inputStream())
+}
+val appVersionCode = versionProps.getProperty("VERSION_CODE", "1").toInt()
+val appVersionName = versionProps.getProperty("VERSION_NAME", "1.0.0")
+
+// Task to bump version before assembling release
+tasks.register("bumpVersion") {
+    doLast {
+        val newCode = appVersionCode + 1
+        val parts = appVersionName.split(".")
+        val newPatch = (parts.getOrElse(2) { "0" }.toIntOrNull() ?: 0) + 1
+        val newName = "${parts[0]}.${parts[1]}.$newPatch"
+        versionProps.setProperty("VERSION_CODE", newCode.toString())
+        versionProps.setProperty("VERSION_NAME", newName)
+        versionProps.store(versionPropsFile.outputStream(), null)
+        println("Version bumped: $appVersionName ($appVersionCode) → $newName ($newCode)")
+    }
+}
+
+tasks.matching { it.name.startsWith("assembleRelease") }.configureEach {
+    dependsOn("bumpVersion")
 }
 
 android {
@@ -12,8 +40,8 @@ android {
         applicationId = "com.tickideas.appstore"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = appVersionCode
+        versionName = appVersionName
 
         buildConfigField("String", "API_BASE_URL", "\"https://apps-api.tikd.dev\"")
     }

@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and, lt } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db, schema } from "../db/index.js";
 import { uploadFile, deleteFile, getDownloadUrl } from "../services/r2.js";
@@ -165,9 +165,23 @@ app.post("/upload", adminAuth, async (c) => {
   let isNew = false;
 
   if (existing[0]) {
-    // Existing app — add a new version
+    // Existing app — replace old versions with this one
     appId = existing[0].id;
     appName = existing[0].name;
+
+    // Delete all old versions from R2 and database
+    const oldVersions = await db
+      .select()
+      .from(schema.versions)
+      .where(eq(schema.versions.appId, appId));
+
+    for (const old of oldVersions) {
+      await deleteFile(old.apkKey);
+    }
+
+    await db
+      .delete(schema.versions)
+      .where(eq(schema.versions.appId, appId));
   } else {
     // New app — create it
     isNew = true;
