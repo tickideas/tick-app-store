@@ -78,7 +78,7 @@ git push -u origin main
 ### Configure the domain
 
 1. Go to the **Domains** tab
-2. Add your domain (e.g. `appstore-api.yourdomain.com`) apps-api.tikd.dev
+2. Add your domain (e.g. `appstore-api.yourdomain.com`)
 3. Set **Container Port**: `3000`
 4. Enable HTTPS (Let's Encrypt)
 
