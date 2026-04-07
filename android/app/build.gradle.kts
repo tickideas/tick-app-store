@@ -14,6 +14,22 @@ val versionProps = Properties().apply {
 val appVersionCode = versionProps.getProperty("VERSION_CODE", "1").toInt()
 val appVersionName = versionProps.getProperty("VERSION_NAME", "1.0.0")
 
+// --- Release signing from key.properties ---
+val signingPropsFile = rootProject.file("key.properties")
+val signingProps = Properties().apply {
+    if (signingPropsFile.exists()) load(signingPropsFile.inputStream())
+}
+val releaseStoreFile = signingProps.getProperty("storeFile")
+val releaseStorePassword = signingProps.getProperty("storePassword")
+val releaseKeyAlias = signingProps.getProperty("keyAlias")
+val releaseKeyPassword = signingProps.getProperty("keyPassword")
+val hasReleaseSigning = listOf(
+    releaseStoreFile,
+    releaseStorePassword,
+    releaseKeyAlias,
+    releaseKeyPassword
+).all { !it.isNullOrBlank() }
+
 // Task to bump version before assembling release
 tasks.register("bumpVersion") {
     doLast {
@@ -46,8 +62,22 @@ android {
         buildConfigField("String", "API_BASE_URL", "\"https://apps-api.tikd.dev\"")
     }
 
+    signingConfigs {
+        create("release") {
+            if (hasReleaseSigning) {
+                storeFile = file(releaseStoreFile!!)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

@@ -1,0 +1,7 @@
+# Copy this file to android/key.properties and fill with your release keystore values.
+# This file is intentionally committed as a template; key.properties is gitignored.
+
+storeFile=/absolute/path/to/your-release-key.jks
+storePassword=your-keystore-password
+keyAlias=your-key-alias
+keyPassword=your-key-password
