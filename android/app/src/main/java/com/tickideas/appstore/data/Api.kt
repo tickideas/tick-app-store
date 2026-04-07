@@ -21,6 +21,7 @@ data class AppInfo(
     val packageName: String,
     val description: String?,
     val iconUrl: String?,
+    val downloadCount: Int = 0,
     val latestVersion: AppVersion?,
     val updatedAt: String?
 )
@@ -38,13 +39,23 @@ data class AppVersionDetail(
     val createdAt: String?
 )
 
+data class VersionHistoryItem(
+    val versionName: String,
+    val versionCode: Int,
+    val apkSize: Long?,
+    val releaseNotes: String?,
+    val publishedAt: String?
+)
+
 data class AppDetail(
     val id: String,
     val name: String,
     val packageName: String,
     val description: String?,
     val iconUrl: String?,
+    val downloadCount: Int = 0,
     val versions: List<AppVersionDetail>,
+    val versionHistory: List<VersionHistoryItem> = emptyList(),
     val createdAt: String?,
     val updatedAt: String?
 )

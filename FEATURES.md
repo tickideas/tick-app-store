@@ -33,11 +33,18 @@
 - [x] APK download via Android DownloadManager with notification
 - [x] Download error handling with Toast feedback
 - [x] Download button shows spinner while downloading
-- [x] App detail page with version history
+- [x] App detail page with download count, stats, and release history
 - [x] Colored initials fallback for apps without icons
 - [x] Package visibility (`QUERY_ALL_PACKAGES`) for install detection on Android 11+
 - [x] Auto-incrementing version (code + name) on release builds
 - [x] FileProvider for secure APK install
+- [x] Pull-to-refresh on app list
+- [x] Shimmer loading placeholders (list + detail)
+- [x] Empty state with icon and messaging
+- [x] Install state refreshes on resume (after installing/uninstalling)
+- [x] Animated store update banner (expand/collapse)
+- [x] Dark mode support with Material You dynamic colors (Android 12+)
+- [x] Polished error states with retry buttons
 
 ### Store Self-Update
 - [x] Backend `/api/store/version` returns current store version
@@ -63,12 +70,9 @@
 - [ ] Force-update option for critical versions
 
 ### UI Polish
-- [ ] Pull-to-refresh on app list
 - [ ] Search / filter apps
-- [ ] App screenshots or description on detail page
-- [ ] Dark mode support (Android)
-- [ ] Loading skeleton states
-- [ ] Empty state illustrations
+- [ ] App screenshots on detail page
+- [ ] Loading skeleton states (admin dashboard)
 
 ### Admin Dashboard Enhancements
 - [ ] Download analytics — chart over time, per-version breakdown
