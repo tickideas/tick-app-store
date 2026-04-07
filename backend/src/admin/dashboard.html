@@ -170,8 +170,12 @@
   .back-link { font-size: 14px; color: var(--primary); cursor: pointer; display: inline-flex; align-items: center; gap: 4px; margin-bottom: 16px; }
   .back-link:hover { text-decoration: underline; }
   .detail-header { display: flex; gap: 20px; align-items: flex-start; margin-bottom: 24px; }
-  .detail-icon { width: 72px; height: 72px; border-radius: 14px; background: var(--bg); border: 1px solid var(--border); overflow: hidden; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 28px; color: var(--text-secondary); }
+  .detail-icon { width: 72px; height: 72px; border-radius: 14px; background: var(--bg); border: 1px solid var(--border); overflow: hidden; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 28px; color: var(--text-secondary); position: relative; cursor: pointer; transition: opacity 0.15s; }
+  .detail-icon:hover { opacity: 0.8; }
+  .detail-icon:hover .icon-overlay { opacity: 1; }
   .detail-icon img { width: 100%; height: 100%; object-fit: cover; }
+  .icon-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.15s; color: #fff; font-size: 12px; font-weight: 500; border-radius: 14px; }
+  .icon-initials { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 18px; color: #fff; border-radius: 10px; }
   .detail-meta h2 { font-size: 22px; margin-bottom: 2px; }
   .detail-meta .pkg { font-size: 14px; color: var(--text-secondary); font-family: 'SF Mono', SFMono-Regular, monospace; }
   .detail-meta .desc { font-size: 14px; color: var(--text-secondary); margin-top: 8px; }
@@ -293,10 +297,10 @@ async function api(path, opts = {}) {
   return res.json();
 }
 
-function xhrUpload(url, formData, onProgress) {
+function xhrUpload(url, formData, onProgress, method) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', url);
+    xhr.open(method || 'POST', url);
     xhr.setRequestHeader('X-API-Key', apiKey);
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable && onProgress) {
@@ -452,7 +456,7 @@ async function loadApps() {
     container.innerHTML = '<div class="card" style="padding:0">' +
       data.apps.map(a => `
         <div class="app-row" onclick="showDetail('${a.id}')">
-          <div class="app-icon">${a.iconUrl ? `<img src="${a.iconUrl}">` : '📱'}</div>
+          <div class="app-icon">${a.iconUrl ? `<img src="${a.iconUrl}">` : initials(a.name, a.id)}</div>
           <div class="app-info">
             <div class="app-name">${esc(a.name)}</div>
             <div class="app-pkg">${esc(a.packageName)}</div>
@@ -478,7 +482,11 @@ async function showDetail(id) {
     view.innerHTML = `
       <div class="back-link" onclick="showList()">← Back to apps</div>
       <div class="detail-header">
-        <div class="detail-icon">${app.iconUrl ? `<img src="${app.iconUrl}">` : '📱'}</div>
+        <div class="detail-icon" onclick="document.getElementById('iconUploadInput').click()" title="Click to change icon">
+          ${app.iconUrl ? `<img src="${app.iconUrl}">` : initials(app.name, app.id, true)}
+          <div class="icon-overlay">Edit</div>
+        </div>
+        <input type="file" id="iconUploadInput" accept="image/*" style="display:none" onchange="uploadIcon('${app.id}', this)">
         <div class="detail-meta">
           <h2>${esc(app.name)}</h2>
           <div class="pkg">${esc(app.packageName)}</div>
@@ -628,6 +636,31 @@ function formatDate(ts) {
   if (!ts) return '';
   const d = new Date(typeof ts === 'number' ? ts * 1000 : ts);
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+// Generate colored initials placeholder
+const iconColors = ['#ef4444','#f97316','#eab308','#22c55e','#06b6d4','#3b82f6','#8b5cf6','#ec4899','#14b8a6','#f43f5e'];
+function initials(name, id, large) {
+  const words = (name || '?').split(/\s+/);
+  const letters = words.length >= 2 ? (words[0][0] + words[1][0]).toUpperCase() : name.substring(0, 2).toUpperCase();
+  const hash = Array.from(id || '').reduce((a, c) => a + c.charCodeAt(0), 0);
+  const bg = iconColors[hash % iconColors.length];
+  const size = large ? 'font-size:26px' : '';
+  return `<div class="icon-initials" style="background:${bg};${size}">${esc(letters)}</div>`;
+}
+
+// Upload icon from detail view
+async function uploadIcon(appId, input) {
+  if (!input.files.length) return;
+  const form = new FormData();
+  form.append('icon', input.files[0]);
+  try {
+    await xhrUpload(`/api/apps/${appId}`, form, null, 'PATCH');
+    toast('Icon updated', 'success');
+    showDetail(appId);
+  } catch (err) {
+    toast(err.message, 'error');
+  }
 }
 </script>
 </body>
